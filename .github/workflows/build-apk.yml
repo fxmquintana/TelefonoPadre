@@ -1,1 +1,56 @@
+name: Build APK — El Teléfono del Padre
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Agregar plataforma Android
+        run: npx cap add android
+
+      - name: Sincronizar proyecto web con Android
+        run: npx cap sync android
+
+      - name: Forzar Gradle 8.7 (compatibilidad Java 21)
+        run: |
+          cd android
+          sed -i "s|distributionUrl=.*|distributionUrl=https\\://services.gradle.org/distributions/gradle-8.7-all.zip|" gradle/wrapper/gradle-wrapper.properties
+          cat gradle/wrapper/gradle-wrapper.properties
+
+      - name: Permisos Gradle
+        run: chmod +x android/gradlew
+
+      - name: Construir APK debug
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Subir APK como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: el-telefono-del-padre-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
 
