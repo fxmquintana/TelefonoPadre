@@ -1372,15 +1372,121 @@ function filtrarVersiculos(){
   document.getElementById('vers-lista-items').innerHTML = html;
 }
 
-function compartirVersiculo(){
+async function compartirVersiculo(){
   if(!versActual) return;
-  const txt = `"${versActual.texto}"\n\n— ${versActual.referencia}\nBiblia Latinoamericana`;
-  if(navigator.share){
-    navigator.share({title: 'Versículo', text: txt}).catch(() => {});
-  } else {
-    navigator.clipboard.writeText(txt);
-    mostrarToast('Copiado');
-  }
+  
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 480;
+  canvas.height = 600;
+  
+  const bg = new Image();
+  bg.onload = () => {
+    // Dibujar fondo
+    ctx.drawImage(bg, 0, 0, 480, 600);
+    
+    // Overlay oscuro
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, 480, 600);
+    
+    // Tema
+    ctx.fillStyle = '#D9A857';
+    ctx.font = 'bold 16px Georgia';
+    ctx.fillText(versActual.tema, 25, 130);
+    
+    // Texto (múltiples líneas)
+    ctx.fillStyle = '#FFF';
+    ctx.font = 'bold 26px Georgia';
+    const palabras = versActual.texto.split(' ');
+    let linea = '', y = 180, lineHeight = 34;
+    const maxWidth = 430;
+    
+    for(let pal of palabras){
+      const test = linea + (linea ? ' ' : '') + pal;
+      if(ctx.measureText(test).width > maxWidth && linea){
+        ctx.fillText(linea, 25, y);
+        linea = pal;
+        y += lineHeight;
+      } else {
+        linea = test;
+      }
+    }
+    if(linea) ctx.fillText(linea, 25, y);
+    
+    // Referencia
+    ctx.fillStyle = '#E3D6BC';
+    ctx.font = '14px Georgia';
+    ctx.fillText('— ' + versActual.referencia, 25, 570);
+    
+    // Convertir canvas a blob y compartir
+    canvas.toBlob(async (blob) => {
+      try {
+        const arrayBuffer = await blob.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        let binaryString = '';
+        for(let i = 0; i < uint8Array.length; i++){
+          binaryString += String.fromCharCode(uint8Array[i]);
+        }
+        const base64Data = btoa(binaryString);
+        
+        const txt = `"${versActual.texto}"\n\n— ${versActual.referencia}`;
+        
+        // Intentar Capacitor (Android nativo)
+        if(window.Capacitor && window.Capacitor.Plugins.Filesystem && window.Capacitor.Plugins.Share){
+          try {
+            const filename = `versiculo_${Date.now()}.png`;
+            await window.Capacitor.Plugins.Filesystem.writeFile({
+              path: filename,
+              data: base64Data,
+              directory: 'Cache'
+            });
+            
+            const fileUri = await window.Capacitor.Plugins.Filesystem.getUri({
+              path: filename,
+              directory: 'Cache'
+            });
+            
+            await window.Capacitor.Plugins.Share.share({
+              title: 'Versículo',
+              text: txt,
+              files: [fileUri.uri],
+              dialogTitle: 'Compartir versículo'
+            });
+            
+            mostrarToast('Imagen compartida');
+            return;
+          } catch(e){
+            console.log('Error con Capacitor:', e);
+          }
+        }
+        
+        // Web Share API (fallback)
+        if(navigator.share){
+          try {
+            const file = new File([blob], 'versiculo.png', {type: 'image/png'});
+            await navigator.share({
+              title: 'Versículo',
+              text: txt,
+              files: [file]
+            });
+            mostrarToast('Compartido');
+            return;
+          } catch(e){
+            console.log('Error con Web Share:', e);
+          }
+        }
+        
+        // Fallback final: solo copiar texto
+        await navigator.clipboard.writeText(txt);
+        mostrarToast('Texto copiado (imagen no soportada en este navegador)');
+        
+      } catch(e){
+        console.error('Error:', e);
+        mostrarToast('Error al compartir');
+      }
+    }, 'image/png', 0.95);
+  };
+  bg.src = 'data:image/jpeg;base64,FONDO_B64';
 }
 
 function renderVersPersonalizados(){
@@ -1493,15 +1599,121 @@ function filtrarFrases(){
   document.getElementById('fras-lista-items').innerHTML = html;
 }
 
-function compartirFrase(){
+async function compartirFrase(){
   if(!frasActual) return;
-  const txt = `"${frasActual.texto}"\n\n— Frase Nº ${frasActual.id}\nEl Teléfono del Padre`;
-  if(navigator.share){
-    navigator.share({title: 'Frase', text: txt}).catch(() => {});
-  } else {
-    navigator.clipboard.writeText(txt);
-    mostrarToast('Copiado');
-  }
+  
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = 480;
+  canvas.height = 600;
+  
+  const bg = new Image();
+  bg.onload = () => {
+    // Dibujar fondo
+    ctx.drawImage(bg, 0, 0, 480, 600);
+    
+    // Overlay oscuro
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, 480, 600);
+    
+    // Número
+    ctx.fillStyle = '#D9A857';
+    ctx.font = 'bold 16px Georgia';
+    ctx.fillText('Frase Nº ' + frasActual.id, 25, 130);
+    
+    // Texto (múltiples líneas)
+    ctx.fillStyle = '#FFF';
+    ctx.font = 'bold 26px Georgia';
+    const palabras = frasActual.texto.split(' ');
+    let linea = '', y = 180, lineHeight = 34;
+    const maxWidth = 430;
+    
+    for(let pal of palabras){
+      const test = linea + (linea ? ' ' : '') + pal;
+      if(ctx.measureText(test).width > maxWidth && linea){
+        ctx.fillText(linea, 25, y);
+        linea = pal;
+        y += lineHeight;
+      } else {
+        linea = test;
+      }
+    }
+    if(linea) ctx.fillText(linea, 25, y);
+    
+    // Firma
+    ctx.fillStyle = '#E3D6BC';
+    ctx.font = '14px Georgia';
+    ctx.fillText('El Teléfono del Padre', 25, 570);
+    
+    // Convertir canvas a blob y compartir
+    canvas.toBlob(async (blob) => {
+      try {
+        const arrayBuffer = await blob.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        let binaryString = '';
+        for(let i = 0; i < uint8Array.length; i++){
+          binaryString += String.fromCharCode(uint8Array[i]);
+        }
+        const base64Data = btoa(binaryString);
+        
+        const txt = `"${frasActual.texto}"\n\n— Frase Nº ${frasActual.id}\nEl Teléfono del Padre`;
+        
+        // Intentar Capacitor (Android nativo)
+        if(window.Capacitor && window.Capacitor.Plugins.Filesystem && window.Capacitor.Plugins.Share){
+          try {
+            const filename = `frase_${Date.now()}.png`;
+            await window.Capacitor.Plugins.Filesystem.writeFile({
+              path: filename,
+              data: base64Data,
+              directory: 'Cache'
+            });
+            
+            const fileUri = await window.Capacitor.Plugins.Filesystem.getUri({
+              path: filename,
+              directory: 'Cache'
+            });
+            
+            await window.Capacitor.Plugins.Share.share({
+              title: 'Frase',
+              text: txt,
+              files: [fileUri.uri],
+              dialogTitle: 'Compartir frase'
+            });
+            
+            mostrarToast('Imagen compartida');
+            return;
+          } catch(e){
+            console.log('Error con Capacitor:', e);
+          }
+        }
+        
+        // Web Share API (fallback)
+        if(navigator.share){
+          try {
+            const file = new File([blob], 'frase.png', {type: 'image/png'});
+            await navigator.share({
+              title: 'Frase',
+              text: txt,
+              files: [file]
+            });
+            mostrarToast('Compartido');
+            return;
+          } catch(e){
+            console.log('Error con Web Share:', e);
+          }
+        }
+        
+        // Fallback final: solo copiar texto
+        await navigator.clipboard.writeText(txt);
+        mostrarToast('Texto copiado (imagen no soportada en este navegador)');
+        
+      } catch(e){
+        console.error('Error:', e);
+        mostrarToast('Error al compartir');
+      }
+    }, 'image/png', 0.95);
+  };
+  bg.src = 'data:image/jpeg;base64,FONDO_B64';
 }
 
 function renderFrasPersonalizadas(){
